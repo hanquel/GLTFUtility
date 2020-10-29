@@ -344,6 +344,24 @@ namespace Siccity.GLTFUtility {
 				});
 			}
 
+			// hkyoo
+			public ImportTask(GLTFMesh meshe, GLTFAccessor.ImportTask accessorTask, GLTFBufferView.ImportTask bufferViewTask, GLTFMaterial.ImportTask materialTask, ImportSettings importSettings) : base(accessorTask, materialTask)
+			{
+				this.meshes = new List<GLTFMesh>();
+				this.meshes.Add(meshe);
+				this.materialTask = materialTask;
+
+				task = new Task(() => {
+					if (meshe == null) return;
+
+					meshData = new MeshData[1];
+					for (int i = 0; i < meshData.Length; i++)
+					{
+						meshData[i] = new MeshData(meshes[i], accessorTask.Result, bufferViewTask.Result);
+					}
+				});
+			}
+
 			public override IEnumerator OnCoroutine(Action<float> onProgress = null) {
 				// No mesh
 				if (meshData == null) {

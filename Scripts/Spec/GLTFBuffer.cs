@@ -69,7 +69,19 @@ namespace Siccity.GLTFUtility {
 					}
 				});
 			}
+
+			// hkyoo
+			public ImportTask(GLTFBuffer buffer, string filepath, byte[] bytefile, long binChunkStart) : base()
+			{
+				task = new Task(() => {
+					Result = new ImportResult[1];
+					for (int i = 0; i < Result.Length; i++)
+					{
+						Result[0] = buffer.Import(filepath, bytefile, binChunkStart);
+					}
+				});
+			}
 		}
-#endregion
+		#endregion
 	}
 }

@@ -89,12 +89,28 @@ namespace Siccity.GLTFUtility {
 
 		public class ImportTask : Importer.ImportTask<ImportResult[]> {
 			public ImportTask(List<GLTFSkin> skins, GLTFAccessor.ImportTask accessorTask) : base(accessorTask) {
-				task = new Task(() => {
+				// hkyoo
+				task = new Task(() =>
+				{
 					if (skins == null) return;
 
 					Result = new ImportResult[skins.Count];
 					for (int i = 0; i < Result.Length; i++) {
 						Result[i] = skins[i].Import(accessorTask.Result);
+					}
+				});
+			}
+
+			// hkyoo
+			public ImportTask(GLTFSkin skin, GLTFAccessor.ImportTask accessorTask) : base(accessorTask)
+			{
+				task = new Task(() => {
+					if (skin == null) return;
+
+					Result = new ImportResult[1];
+					for (int i = 0; i < Result.Length; i++)
+					{
+						Result[i] = skin.Import(accessorTask.Result);
 					}
 				});
 			}

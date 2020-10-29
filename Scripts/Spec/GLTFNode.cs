@@ -63,6 +63,17 @@ namespace Siccity.GLTFUtility {
 				task = new Task(() => { });
 			}
 
+			// hkyoo
+			public ImportTask(GLTFNode node, GLTFMesh.ImportTask meshTask, GLTFSkin.ImportTask skinTask, List<GLTFCamera> cameras) : base(meshTask, skinTask)
+			{
+				this.nodes = new List<GLTFNode>();
+				this.nodes.Add(node);
+				this.meshTask = meshTask;
+				this.skinTask = skinTask;
+				this.cameras = cameras;
+				task = new Task(() => { });
+			}
+
 			public override IEnumerator OnCoroutine(Action<float> onProgress = null) {
 				// No nodes
 				if (nodes == null) {
@@ -99,7 +110,9 @@ namespace Siccity.GLTFUtility {
 				for (int i = 0; i < Result.Length; i++) {
 					// Setup mesh
 					if (nodes[i].mesh.HasValue) {
-						GLTFMesh.ImportResult meshResult = meshTask.Result[nodes[i].mesh.Value];
+						// hkyoo
+						//GLTFMesh.ImportResult meshResult = meshTask.Result[nodes[i].mesh.Value];
+						GLTFMesh.ImportResult meshResult = meshTask.Result[0];
 						if (meshResult == null) continue;
 
 						Mesh mesh = meshResult.mesh;

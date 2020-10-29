@@ -51,6 +51,27 @@ namespace Siccity.GLTFUtility {
 					}
 				});
 			}
+
+			// hkyoo
+			public ImportTask(GLTFTexture texture, GLTFImage.ImportTask imageTask) : base(imageTask)
+			{
+				Debug.Log("Start ImportTask");
+				task = new Task(() => {
+					if (texture == null)
+					{
+						Debug.Log("ImportTask texture is null");
+						return;
+
+					}
+
+					Result = new ImportResult[1];
+					for (int i = 0; i < Result.Length; i++)
+					{
+						Result[i] = texture.Import(imageTask.Result);
+						Debug.Log("ImportResult: " + Result[i]);
+					}
+				});
+			}
 		}
 	}
 }

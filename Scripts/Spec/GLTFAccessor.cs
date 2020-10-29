@@ -472,6 +472,18 @@ namespace Siccity.GLTFUtility {
 					}
 				});
 			}
+
+			// hkyoo
+			public ImportTask(GLTFAccessor accessor, GLTFBufferView.ImportTask bufferViewTask) : base(bufferViewTask)
+			{
+				task = new Task(() => {
+					Result = new ImportResult[1];
+					for (int i = 0; i < Result.Length; i++)
+					{
+						Result[i] = accessor.Import(bufferViewTask.Result);
+					}
+				});
+			}
 		}
 #endregion
 	}

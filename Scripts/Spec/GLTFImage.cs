@@ -112,6 +112,58 @@ namespace Siccity.GLTFUtility {
 					}
 				});
 			}
+
+			// hkyoo
+			public ImportTask(GLTFImage image, string directoryRoot, GLTFBufferView.ImportTask bufferViewTask) : base(bufferViewTask)
+			{
+				Debug.Log("ImportTask Check");
+				task = new Task(() => {
+					// No images
+					if (image == null) return;
+
+					Result = new ImportResult[1];
+					for (int i = 0; i < 1; i++)
+					{
+						string fullUri = directoryRoot + image.uri;
+						if (!string.IsNullOrEmpty(image.uri))
+						{
+							Debug.Log("!string.IsNullOrEmpty(image.uri)");
+							if (File.Exists(fullUri))
+							{
+								// If the file is found at fullUri, read it
+								byte[] bytes = File.ReadAllBytes(fullUri);
+								Result[i] = new ImportResult(bytes, fullUri);
+								Debug.Log("File is Exist");
+							}
+							else if (image.uri.StartsWith("data:"))
+							{
+								// If the image is embedded, find its Base64 content and save as byte array
+								string content = image.uri.Split(',').Last();
+								byte[] imageBytes = Convert.FromBase64String(content);
+								Result[i] = new ImportResult(imageBytes);
+							}
+						}
+						else if (image.bufferView.HasValue && !string.IsNullOrEmpty(image.mimeType))
+						{
+							Debug.Log("!image.bufferView.HasValue && !string.IsNullOrEmpty(image.mimeType)");
+							GLTFBufferView.ImportResult view = bufferViewTask.Result[image.bufferView.Value];
+							byte[] bytes = new byte[view.byteLength];
+							view.stream.Position = view.byteOffset;
+							view.stream.Read(bytes, 0, view.byteLength);
+							Result[i] = new ImportResult(bytes);
+						}
+						else
+						{
+							Debug.Log("Couldn't find texture at " + fullUri);
+						}
+					}
+
+					//if (Result[0] == null)
+					//{
+					//	Debug.Log("Result is null");
+					//}
+				});
+			}
 		}
 	}
 }

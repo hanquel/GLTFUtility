@@ -7,10 +7,18 @@ using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using UnityEngine;
+using System.Diagnostics;
 
 namespace Siccity.GLTFUtility {
 	/// <summary> API used for importing .gltf and .glb files </summary>
 	public static class Importer {
+		// hkyoo
+		public static GLTFObject LoadFromFileGLTFObject(string filepath, out long binChunk)
+		{
+			// TODO : 코드 정리 필요 (테스트 용)
+			return ImportGLB(filepath, out binChunk);
+		}
+
 		public static GameObject LoadFromFile(string filepath, Format format = Format.AUTO) {
 			AnimationClip[] animations;
 			return LoadFromFile(filepath, new ImportSettings(), out animations, format);
@@ -31,7 +39,7 @@ namespace Siccity.GLTFUtility {
 				if (extension == ".glb") return ImportGLB(filepath, importSettings, out animations);
 				else if (extension == ".gltf") return ImportGLTF(filepath, importSettings, out animations);
 				else {
-					Debug.Log("Extension '" + extension + "' not recognized in " + filepath);
+					UnityEngine.Debug.Log("Extension '" + extension + "' not recognized in " + filepath);
 					animations = null;
 					return null;
 				}
@@ -55,12 +63,24 @@ namespace Siccity.GLTFUtility {
 			if (extension == ".glb") ImportGLBAsync(filepath, importSettings, onFinished, onProgress);
 			else if (extension == ".gltf") ImportGLTFAsync(filepath, importSettings, onFinished, onProgress);
 			else {
-				Debug.Log("Extension '" + extension + "' not recognized in " + filepath);
+				UnityEngine.Debug.Log("Extension '" + extension + "' not recognized in " + filepath);
 				onFinished(null, null);
 			}
 		}
 
 #region GLB
+		// hkyoo
+		private static GLTFObject ImportGLB(string filepath, out long binChunk)
+		{
+			FileStream stream = File.OpenRead(filepath);
+			string json = GetGLBJson(stream, out binChunk);
+			GLTFObject gltfObject = JsonConvert.DeserializeObject<GLTFObject>(json);
+
+			CheckExtensions(gltfObject);
+
+			return gltfObject;
+		}
+
 		private static GameObject ImportGLB(string filepath, ImportSettings importSettings, out AnimationClip[] animations) {
 			FileStream stream = File.OpenRead(filepath);
 			long binChunkStart;
@@ -100,13 +120,13 @@ namespace Siccity.GLTFUtility {
 			// 8-12 - length = total length of glb, including Header and all Chunks, in bytes.
 			string magic = Encoding.Default.GetString(buffer, 0, 4);
 			if (magic != "glTF") {
-				Debug.LogWarning("Input does not look like a .glb file");
+				UnityEngine.Debug.LogWarning("Input does not look like a .glb file");
 				binChunkStart = 0;
 				return null;
 			}
 			uint version = System.BitConverter.ToUInt32(buffer, 4);
 			if (version != 2) {
-				Debug.LogWarning("Importer does not support gltf version " + version);
+				UnityEngine.Debug.LogWarning("Importer does not support gltf version " + version);
 				binChunkStart = 0;
 				return null;
 			}
@@ -181,7 +201,142 @@ namespace Siccity.GLTFUtility {
 			}
 		}
 
-#region Sync
+		#region Sync
+		// hkyoo
+		public static GameObject LoadInternal(this GLTFObject gltfObject, string filepath, int index, byte[] bytefile, long binChunkStart, ImportSettings importSettings, out AnimationClip[] animations)
+		{
+			// directory root is sometimes used for loading buffers from containing file, or local images
+			string directoryRoot = filepath != null ? Directory.GetParent(filepath).ToString() + "/" : null;
+
+			importSettings.shaderOverrides.CacheDefaultShaders();
+
+			//// for debug
+			//Debug.Log(gltfObject.nodes.ToString() + " " + gltfObject.nodes.Count); // 151 
+			//Debug.Log(gltfObject.meshes.ToString() + " " + gltfObject.meshes.Count); // 151
+			////Debug.Log(gltfObject.animations.ToString() + " " + gltfObject.animations.Count); // null
+			//Debug.Log(gltfObject.buffers.ToString() + " " + gltfObject.buffers.Count); // 1
+			//Debug.Log(gltfObject.bufferViews.ToString() + " " + gltfObject.bufferViews.Count); // 755
+			//Debug.Log(gltfObject.accessors.ToString() + " " + gltfObject.accessors.Count); // 604
+			////Debug.Log(gltfObject.skins.ToString() + " " + gltfObject.skins.Count); // null
+			//Debug.Log(gltfObject.textures.ToString() + " " + gltfObject.textures.Count); // 151
+			//Debug.Log(gltfObject.images.ToString() + " " + gltfObject.images.Count); // 151
+			//Debug.Log(gltfObject.materials.ToString() + " " + gltfObject.materials.Count); // 151
+			////Debug.Log(gltfObject.cameras.ToString() + " " + gltfObject.cameras.Count); // null
+			///
+
+			Stopwatch sw = new Stopwatch();
+				
+	
+			// image/material/mesh
+
+			sw.Start();
+			// Import tasks synchronously
+			GLTFBuffer.ImportTask bufferTask = new GLTFBuffer.ImportTask(gltfObject.buffers, filepath, bytefile, binChunkStart);
+			bufferTask.RunSynchronously();
+			sw.Stop();
+			UnityEngine.Debug.Log("bufferTask : " + sw.ElapsedMilliseconds.ToString() + "ms");
+			sw.Reset();
+
+			sw.Start();
+
+			// TODO?
+			GLTFBufferView.ImportTask bufferViewTask = new GLTFBufferView.ImportTask(gltfObject.bufferViews, bufferTask);
+			bufferViewTask.RunSynchronously();
+
+			sw.Stop();
+			UnityEngine.Debug.Log("bufferViewTask : " + sw.ElapsedMilliseconds.ToString() + "ms");
+			sw.Reset();
+
+			sw.Start();
+
+
+			GLTFAccessor.ImportTask accessorTask = new GLTFAccessor.ImportTask(gltfObject.accessors, bufferViewTask);
+			accessorTask.RunSynchronously();
+
+			sw.Stop();
+			UnityEngine.Debug.Log("accessorTask : " + sw.ElapsedMilliseconds.ToString() + "ms");
+			sw.Reset();
+
+			sw.Start();
+
+			GLTFImage.ImportTask imageTask = new GLTFImage.ImportTask(gltfObject.images[index], directoryRoot, bufferViewTask);
+			//GLTFImage.ImportTask imageTask = new GLTFImage.ImportTask(gltfObject.images, directoryRoot, bufferViewTask);
+			imageTask.RunSynchronously();
+
+			sw.Stop();
+			UnityEngine.Debug.Log("imageTask : " + sw.ElapsedMilliseconds.ToString() + "ms");
+			sw.Reset();
+
+			sw.Start();
+
+			GLTFTexture.ImportTask textureTask = new GLTFTexture.ImportTask(gltfObject.textures[index], imageTask);
+			//GLTFTexture.ImportTask textureTask = new GLTFTexture.ImportTask(gltfObject.textures, imageTask);
+			textureTask.RunSynchronously();
+
+			UnityEngine.Debug.Log("textureTask.Result[0] " + textureTask.Result.Length + " " + textureTask.Result[0]);
+
+			sw.Stop();
+			UnityEngine.Debug.Log("textureTask : " + sw.ElapsedMilliseconds.ToString() + "ms");
+			sw.Reset();
+
+			sw.Start();
+
+			// TODO : shader setting
+			GLTFMaterial.ImportTask materialTask = new GLTFMaterial.ImportTask(gltfObject.materials[index], textureTask, importSettings);
+			//GLTFMaterial.ImportTask materialTask = new GLTFMaterial.ImportTask(gltfObject.materials, textureTask, importSettings);
+
+			materialTask.RunSynchronously();
+
+			sw.Stop();
+			UnityEngine.Debug.Log("materialTask : " + sw.ElapsedMilliseconds.ToString() + "ms");
+			sw.Reset();
+
+			sw.Start();
+
+			// TODO : 
+			GLTFMesh.ImportTask meshTask = new GLTFMesh.ImportTask(gltfObject.meshes[index], accessorTask, bufferViewTask, materialTask, importSettings);
+			//GLTFMesh.ImportTask meshTask = new GLTFMesh.ImportTask(gltfObject.meshes, accessorTask, bufferViewTask, materialTask, importSettings);
+
+			meshTask.RunSynchronously();
+
+			sw.Stop();
+			UnityEngine.Debug.Log("meshTask : " + sw.ElapsedMilliseconds.ToString() + "ms");
+			sw.Reset();
+
+			sw.Start();
+
+			GLTFSkin.ImportTask skinTask = new GLTFSkin.ImportTask(gltfObject.skins, accessorTask);
+			skinTask.RunSynchronously();
+
+			sw.Stop();
+			UnityEngine.Debug.Log("skinTask : " + sw.ElapsedMilliseconds.ToString() + "ms");
+			sw.Reset();
+
+			sw.Start();
+
+
+			GLTFNode.ImportTask nodeTask = new GLTFNode.ImportTask(gltfObject.nodes[index], meshTask, skinTask, gltfObject.cameras);
+			//GLTFNode.ImportTask nodeTask = new GLTFNode.ImportTask(gltfObject.nodes, meshTask, skinTask, gltfObject.cameras);
+			nodeTask.RunSynchronously();
+
+			sw.Stop();
+			UnityEngine.Debug.Log("nodeTask : " + sw.ElapsedMilliseconds.ToString() + "ms");
+			sw.Reset();
+
+
+
+			GLTFAnimation.ImportResult[] animationResult = gltfObject.animations.Import(accessorTask.Result, nodeTask.Result, importSettings);
+			if (animationResult != null) animations = animationResult.Select(x => x.clip).ToArray();
+			else animations = new AnimationClip[0];
+
+			foreach (var item in bufferTask.Result)
+			{
+				item.Dispose();
+			}
+
+			return nodeTask.Result.GetRoot();
+		}
+
 		private static GameObject LoadInternal(this GLTFObject gltfObject, string filepath, byte[] bytefile, long binChunkStart, ImportSettings importSettings, out AnimationClip[] animations) {
 			CheckExtensions(gltfObject);
 
@@ -302,7 +457,7 @@ namespace Siccity.GLTFUtility {
 						case "KHR_draco_mesh_compression":
 							break;
 						default:
-							Debug.LogWarning($"GLTFUtility: Required extension '{gLTFObject.extensionsRequired[i]}' not supported. Import process will proceed but results may vary.");
+							UnityEngine.Debug.LogWarning($"GLTFUtility: Required extension '{gLTFObject.extensionsRequired[i]}' not supported. Import process will proceed but results may vary.");
 							break;
 					}
 				}

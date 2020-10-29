@@ -42,6 +42,25 @@ namespace Siccity.GLTFUtility {
 					}
 				});
 			}
+
+			// hkyoo
+			public ImportTask(GLTFBufferView bufferView, GLTFBuffer.ImportTask bufferTask) : base(bufferTask)
+			{
+				task = new Task(() => {
+					Result = new ImportResult[1];
+					for (int i = 0; i < Result.Length; i++)
+					{
+						GLTFBuffer.ImportResult buffer = bufferTask.Result[bufferView.buffer];
+						ImportResult result = new ImportResult();
+						result.stream = buffer.stream;
+						result.byteOffset = bufferView.byteOffset;
+						result.byteOffset += (int)buffer.startOffset;
+						result.byteLength = bufferView.byteLength;
+						result.byteStride = bufferView.byteStride;
+						Result[i] = result;
+					}
+				});
+			}
 		}
 	}
 }
